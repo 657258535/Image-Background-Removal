@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片颜色透明化工具</title>
+    <!-- Tailwind CSS 简化样式开发 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome 提供图标支持 -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        /* 全局基础样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            outline: none;
+            box-sizing: border-box;
+            text-decoration: none;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4eaf5 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        /* 卡片阴影效果 */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+        }
+        /* 按钮样式 */
+        .btn-primary {
+            background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+        .btn-primary:disabled {
+            background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        /* 上传控件美化 */
+        .custom-file-upload {
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .custom-file-upload input[type="file"] {
+            position: absolute;
+            top: 0;
+            right: 0;
+            min-width: 100%;
+            min-height: 100%;
+            font-size: 100px;
+            opacity: 0;
+            cursor: pointer;
+        }
+        /* 预览图容器 - 新增拖拽样式 */
+        .preview-container {
+            position: relative;
+            overflow: hidden;
+            border: 2px dashed #e0e0e0;
+            transition: all 0.3s ease;
+            background-image: url('TransparentBackground.png');
+            background-size: 20px 20px;
+            background-repeat: repeat;
+        }
+        .preview-container:hover {
+            border-color: #4361ee;
+        }
+        .preview-container.drag-over {
+            border-color: #4361ee;
+            background-color: rgba(67, 97, 238, 0.05);
+            transform: scale(1.01);
+        }
+        /* 步骤指示器 */
+        .step-item {
+            position: relative;
+        }
+        .step-item::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 40px;
+            width: 100%;
+            height: 2px;
+            background: #e0e0e0;
+            z-index: 1;
+        }
+        .step-item:last-child::after {
+            display: none;
+        }
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            position: relative;
+            z-index: 2;
+            transition: all 0.3s ease;
+        }
+        .step-item.active .step-number {
+            background: #4361ee;
+            color: white;
+        }
+        /* 滑块自定义样式 */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4361ee;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.2);
+        }
+        /* 加载提示样式 */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .loading-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(67, 97, 238, 0.2);
+            border-radius: 50%;
+            border-top-color: #4361ee;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 圆形选择器样式 */
+        .color-picker-circle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 1px solid #4361ee;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            background: radial-gradient(circle, transparent 8px, rgba(67, 97, 238, 0.2) 8px, rgba(67, 97, 238, 0.2) 10px, transparent 10px);
+        }
+        .color-picker-circle.visible {
+            opacity: 1;
+        }
+        /* 圆形选择器中心点 */
+        .color-picker-circle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 3px;
+            height: 3px;
+            background-color: #4361ee;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        /* 处理中状态样式 */
+        .processing-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(67, 97, 238, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .processing-indicator.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 页面标题 -->
+        <header class="text-center mb-10">
+            <h1 class="text-[clamp(1.8rem,3vw,2.5rem)] font-bold text-[#2d3748] mb-2">
+                <i class="fa fa-magic text-[#4361ee] mr-2"></i>图片颜色透明化工具
+            </h1>
+            <p class="text-gray-600 max-w-800 mx-auto">
+                上传/拖入图片后点击拾取颜色，自动将相似色转为透明，支持调节颜色匹配范围，处理后可直接下载
+            </p>
+        </header>
+
+        <!-- 操作步骤指示器 -->
+        <div class="flex flex-wrap justify-between mb-8 max-w-3xl mx-auto">
+            <div class="step-item active w-[30%] text-center mb-4">
+                <div class="step-number mx-auto mb-2">1</div>
+                <p class="text-sm font-medium">上传/拖入图片</p>
+            </div>
+            <div class="step-item w-[30%] text-center mb-4">
+                <div class="step-number mx-auto mb-2">2</div>
+                <p class="text-sm font-medium">拾取颜色</p>
+            </div>
+            <div class="step-item w-[30%] text-center mb-4">
+                <div class="step-number mx-auto mb-2">3</div>
+                <p class="text-sm font-medium">下载图片</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：操作面板 -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- 上传图片卡片 -->
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fa fa-upload text-[#4361ee] mr-2"></i>上传图片
+                    </h3>
+                    <div class="custom-file-upload w-full">
+                        <button class="btn-primary w-full py-4 text-lg">
+                            <i class="fa fa-image mr-2"></i>选择图片文件
+                        </button>
+                        <input type="file" id="imageFileInput" accept="image/*">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-3 text-center">
+                        支持 JPG、PNG、WebP 等格式，建议图片尺寸不超过 4000px
+                    </p>
+                </div>
+
+                <!-- 参数调节卡片 -->
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fa fa-sliders text-[#4361ee] mr-2"></i>参数调节
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="similarityRange" class="block text-sm font-medium text-gray-700 mb-2">
+                                相似色匹配范围
+                            </label>
+                            <div class="flex items-center gap-4">
+                                <input type="range" id="similarityRange" min="0" max="255" value="36" step="1"
+                                    class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <span id="similarityValue" class="min-w-[40px] text-center font-semibold text-[#4361ee]">36</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">值越大，匹配的颜色范围越广（0-255）</p>
+                        </div>
+
+                        <!-- 下载按钮 -->
+                        <button id="downloadButton" class="btn-primary w-full py-3 text-lg mt-4" disabled>
+                            <i class="fa fa-download mr-2"></i>下载处理后的图片
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 操作提示卡片 -->
+                <div class="card p-6 bg-blue-50 border border-blue-100">
+                    <h3 class="text-lg font-semibold mb-3 flex items-center text-[#2b6cb0]">
+                        <i class="fa fa-lightbulb-o mr-2"></i>操作提示
+                    </h3>
+                    <ul class="text-sm text-gray-700 space-y-2">
+                        <li><i class="fa fa-check-circle text-green-500 mr-1"></i>点击/拖入预览区上传图片</li>
+                        <li><i class="fa fa-check-circle text-green-500 mr-1"></i>鼠标移动时会显示80px半径的圆形选择器</li>
+                        <li><i class="fa fa-check-circle text-green-500 mr-1"></i>点击图片，系统会采集圆圈内所有像素的平均颜色</li>
+                        <li><i class="fa fa-check-circle text-green-500 mr-1"></i>使用洪水填充算法，只将连续的相似颜色替换为透明</li>
+                        <li><i class="fa fa-check-circle text-green-500 mr-1"></i>拖动滑块调整相似色匹配精度</li>
+                        <li><i class="fa fa-check-circle text-green-500 mr-1"></i>处理完成后点击下载按钮保存图片</li>
+                        <li><i class="fa fa-check-circle text-green-500 mr-1"></i>下载格式默认为 PNG（支持透明通道）</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 右侧：预览区域 -->
+            <div class="lg:col-span-2">
+                <div class="card p-6 h-full">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fa fa-eye text-[#4361ee] mr-2"></i>图片预览
+                        <span id="imageStatus" class="ml-2 text-sm text-gray-500">未上传图片</span>
+                    </h3>
+                    <div class="preview-container w-full h-[500px] flex items-center justify-center rounded-lg relative">
+                        <!-- 加载提示 -->
+                        <div class="loading-overlay" id="loadingOverlay">
+                            <div class="spinner"></div>
+                        </div>
+                        <!-- 处理中状态指示器 -->
+                        <div class="processing-indicator" id="processingIndicator">
+                            正在处理颜色...
+                        </div>
+                        <!-- 预览图 -->
+                        <img id="previewImage" alt="预览图片" class="max-w-full max-h-full object-contain"
+                            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='16'%3E点击上传或拖拽图片%3C/text%3E%3C/svg%3E"
+                            >
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隐藏的画布：用于像素级处理 -->
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <script>
+        // 确保DOM加载完成后再执行脚本
+        document.addEventListener('DOMContentLoaded', function() {
+            // 工具类 - 封装核心功能
+            class ImageProcessor {
+                constructor() {
+                    this.canvas = document.getElementById('canvas');
+                    this.ctx = this.canvas.getContext('2d');
+                    this.originalImageData = null;
+                    this.currentImage = null;
+                    this.circleRadius = 10;
+                    this.isProcessing = false;
+                }
+
+                // 检查canvas元素
+                ensureCanvas() {
+                    if (!this.canvas) {
+                        console.error('Canvas元素未找到，正在创建...');
+                        this.canvas = document.createElement('canvas');
+                        this.canvas.id = 'canvas';
+                        this.canvas.style.display = 'none';
+                        document.body.appendChild(this.canvas);
+                        this.ctx = this.canvas.getContext('2d');
+                    }
+                }
+
+                // 通用图片处理函数
+                async processImage(file) {
+                    if (!file) return;
+                    
+                    this.ensureCanvas();
+                    
+                    // 校验文件类型
+                    if (!file.type.startsWith('image/')) {
+                        this.showStatus('请上传有效的图片文件（JPG/PNG/WebP等）', 'error');
+                        return;
+                    }
+
+                    this.showLoading(true);
+                    this.showStatus('正在加载图片...', 'loading');
+
+                    try {
+                        const img = await this.loadImage(file);
+                        
+                        // 设置画布尺寸与图片一致
+                        this.canvas.width = img.width;
+                        this.canvas.height = img.height;
+                        this.ctx.drawImage(img, 0, 0);
+                        
+                        // 保存原始图像数据用于重置
+                        this.originalImageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                        this.currentImage = img;
+                        
+                        return img;
+                    } catch (error) {
+                        this.showStatus('图片加载失败：' + error.message, 'error');
+                        throw error;
+                    } finally {
+                        this.showLoading(false);
+                    }
+                }
+
+                // 异步加载图片
+                loadImage(file) {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        
+                        img.onload = () => resolve(img);
+                        img.onerror = () => reject(new Error('图片加载失败'));
+                        
+                        reader.onload = e => img.src = e.target.result;
+                        reader.onerror = () => reject(new Error('文件读取失败'));
+                        
+                        reader.readAsDataURL(file);
+                    });
+                }
+
+                // 采集圆圈范围内的像素颜色
+                collectCirclePixels(centerX, centerY, radius, ctx, canvasWidth, canvasHeight) {
+                    const pixels = [];
+                    const radiusSquared = radius * radius;
+                    
+                    const startX = Math.max(0, centerX - radius);
+                    const endX = Math.min(canvasWidth - 1, centerX + radius);
+                    const startY = Math.max(0, centerY - radius);
+                    const endY = Math.min(canvasHeight - 1, centerY + radius);
+                    
+                    const imageData = ctx.getImageData(startX, startY, endX - startX + 1, endY - startY + 1);
+                    const data = imageData.data;
+                    
+                    for (let y = startY; y <= endY; y++) {
+                        for (let x = startX; x <= endX; x++) {
+                            const dx = x - centerX;
+                            const dy = y - centerY;
+                            const distanceSquared = dx * dx + dy * dy;
+                            
+                            if (distanceSquared <= radiusSquared) {
+                                const index = ((y - startY) * (endX - startX + 1) + (x - startX)) * 4;
+                                const alpha = data[index + 3];
+                                
+                                if (alpha > 0) {
+                                    pixels.push({
+                                        x: x, y: y,
+                                        r: data[index], g: data[index + 1], 
+                                        b: data[index + 2], a: alpha
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    
+                    return pixels;
+                }
+
+                // 采集十字形21像素（上下左右各5像素+中心点）
+                collectCrossPixels(centerX, centerY, ctx, canvasWidth, canvasHeight) {
+                    const pixels = [];
+                    const radius = 5; // 向四个方向各采集5个像素
+                    
+                    // 获取中心点及其周围像素数据
+                    const startX = Math.max(0, centerX - radius);
+                    const endX = Math.min(canvasWidth - 1, centerX + radius);
+                    const startY = Math.max(0, centerY - radius);
+                    const endY = Math.min(canvasHeight - 1, centerY + radius);
+                    
+                    const imageData = ctx.getImageData(startX, startY, endX - startX + 1, endY - startY + 1);
+                    const data = imageData.data;
+                    
+                    const getPixel = (x, y) => {
+                        if (x < 0 || x >= canvasWidth || y < 0 || y >= canvasHeight) return null;
+                        const index = ((y - startY) * (endX - startX + 1) + (x - startX)) * 4;
+                        return {
+                            x: x, y: y,
+                            r: data[index], g: data[index + 1], 
+                            b: data[index + 2], a: data[index + 3]
+                        };
+                    };
+                    
+                    // 先检查所有21个像素是否全部透明
+                    let hasOpaquePixel = false;
+                    
+                    // 检查中心点
+                    const centerPixel = getPixel(centerX, centerY);
+                    if (centerPixel && centerPixel.a > 0) {
+                        hasOpaquePixel = true;
+                        pixels.push(centerPixel);
+                    }
+                    
+                    // 检查上下左右各5个像素
+                    const directions = [
+                        [0, -1], [0, 1], [-1, 0], [1, 0] // 上下左右方向
+                    ];
+                    
+                    for (const [dx, dy] of directions) {
+                        for (let i = 1; i <= radius; i++) {
+                            const pixel = getPixel(centerX + dx * i, centerY + dy * i);
+                            if (pixel && pixel.a > 0) {
+                                hasOpaquePixel = true;
+                                pixels.push(pixel);
+                            }
+                        }
+                    }
+                    
+                    // 如果所有像素都是透明的，返回空数组
+                    if (!hasOpaquePixel) {
+                        return [];
+                    }
+                    
+                    return pixels;
+                }
+
+                // 计算颜色平均值
+                calculateAverageColor(pixels) {
+                    if (pixels.length === 0) return [0, 0, 0];
+                    
+                    let totalR = 0, totalG = 0, totalB = 0;
+                    let validPixels = 0;
+                    
+                    for (const pixel of pixels) {
+                        if (pixel.a > 0) {
+                            totalR += pixel.r;
+                            totalG += pixel.g;
+                            totalB += pixel.b;
+                            validPixels++;
+                        }
+                    }
+                    
+                    if (validPixels === 0) return [0, 0, 0];
+                    
+                    return [
+                        Math.round(totalR / validPixels),
+                        Math.round(totalG / validPixels),
+                        Math.round(totalB / validPixels)
+                    ];
+                }
+
+                // 洪水填充算法 - 优化版本
+                floodFillTransparent(imageData, width, height, startX, startY, targetColor, tolerance) {
+                    if (startX < 0 || startX >= width || startY < 0 || startY >= height) return 0;
+                    
+                    const startColor = this.getPixelColor(imageData, width, startX, startY);
+                    if (this.colorDistance(startColor, targetColor) > tolerance || startColor[3] === 0) return 0;
+                    
+                    const stack = [[startX, startY]];
+                    const processed = new Array(height).fill().map(() => new Array(width).fill(false));
+                    processed[startY][startX] = true;
+                    
+                    const directions = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+                    let processedPixels = 0;
+                    
+                    while (stack.length > 0) {
+                        const [x, y] = stack.pop();
+                        const currentColor = this.getPixelColor(imageData, width, x, y);
+                        
+                        if (currentColor[3] > 0 && this.colorDistance(currentColor, targetColor) <= tolerance) {
+                            const index = (y * width + x) * 4;
+                            imageData[index + 3] = 0;
+                            processedPixels++;
+                            
+                            for (const [dx, dy] of directions) {
+                                const newX = x + dx, newY = y + dy;
+                                if (newX >= 0 && newX < width && newY >= 0 && newY < height && !processed[newY][newX]) {
+                                    const neighborColor = this.getPixelColor(imageData, width, newX, newY);
+                                    if (neighborColor[3] > 0 && this.colorDistance(neighborColor, targetColor) <= tolerance) {
+                                        stack.push([newX, newY]);
+                                        processed[newY][newX] = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    return processedPixels;
+                }
+
+                // 工具函数
+                colorDistance(color1, color2) {
+                    const rDiff = color1[0] - color2[0];
+                    const gDiff = color1[1] - color2[1];
+                    const bDiff = color1[2] - color2[2];
+                    return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+                }
+
+                getPixelColor(imageData, width, x, y) {
+                    const index = (y * width + x) * 4;
+                    return [imageData[index], imageData[index + 1], imageData[index + 2], imageData[index + 3]];
+                }
+
+                rgbToHex(r, g, b) {
+                    return '#' + [r, g, b].map(x => {
+                        const hex = x.toString(16);
+                        return hex.length === 1 ? '0' + hex : hex;
+                    }).join('');
+                }
+
+                // UI辅助方法
+                showStatus(message, type = 'info') {
+                    const statusEl = document.getElementById('imageStatus');
+                    if (statusEl) {
+                        statusEl.textContent = message;
+                        statusEl.className = `text-sm ${this.getStatusColorClass(type)}`;
+                    }
+                }
+
+                getStatusColorClass(type) {
+                    switch (type) {
+                        case 'success': return 'text-green-600';
+                        case 'error': return 'text-red-600';
+                        case 'loading': return 'text-blue-600';
+                        case 'warning': return 'text-yellow-600';
+                        default: return 'text-gray-600';
+                    }
+                }
+
+                showLoading(show) {
+                    const loadingOverlay = document.getElementById('loadingOverlay');
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.toggle('show', show);
+                    }
+                }
+
+                showProcessing(show, message = '正在处理...') {
+                    const indicator = document.getElementById('processingIndicator');
+                    if (indicator) {
+                        indicator.textContent = message;
+                        indicator.classList.toggle('show', show);
+                    }
+                }
+            }
+
+            // 获取页面核心控件
+            const imageFileInput = document.getElementById('imageFileInput');
+            const previewImage = document.getElementById('previewImage');
+            const downloadButton = document.getElementById('downloadButton');
+            const similarityRange = document.getElementById('similarityRange');
+            const similarityValue = document.getElementById('similarityValue');
+            const imageStatus = document.getElementById('imageStatus');
+            const stepItems = document.querySelectorAll('.step-item');
+            const previewContainer = document.querySelector('.preview-container');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const processingIndicator = document.getElementById('processingIndicator');
+            
+            // 创建圆形选择器元素
+            const colorPickerCircle = document.createElement('div');
+            colorPickerCircle.className = 'color-picker-circle';
+            previewContainer.appendChild(colorPickerCircle);
+            
+            // 初始化处理器
+            const processor = new ImageProcessor();
+            const circleRadius = processor.circleRadius;
+            const circleDiameter = circleRadius * 2;
+            
+            // 步骤状态更新函数
+            function updateStepStatus(stepIndex) {
+                stepItems.forEach((item, index) => {
+                    if (index <= stepIndex) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                });
+            }
+
+            // 优化的鼠标移动事件 - 使用节流避免性能问题
+            let mouseMoveThrottle = null;
+            function handleMouseMove(event) {
+                if (!previewImage.src.includes('data:image/svg+xml')) {
+                    const rect = previewContainer.getBoundingClientRect();
+                    let x = event.clientX - rect.left - circleRadius;
+                    let y = event.clientY - rect.top - circleRadius;
+                    
+                    x = Math.max(0, Math.min(x, rect.width - circleDiameter));
+                    y = Math.max(0, Math.min(y, rect.height - circleDiameter));
+                    
+                    colorPickerCircle.style.left = `${x}px`;
+                    colorPickerCircle.style.top = `${y}px`;
+                    colorPickerCircle.classList.add('visible');
+                } else {
+                    colorPickerCircle.classList.remove('visible');
+                }
+            }
+
+            // 使用requestAnimationFrame优化鼠标移动性能
+            function optimizedMouseMove(event) {
+                if (mouseMoveThrottle) return;
+                mouseMoveThrottle = requestAnimationFrame(() => {
+                    handleMouseMove(event);
+                    mouseMoveThrottle = null;
+                });
+            }
+
+            // 处理图片颜色选择和处理
+            async function handleColorPick(event) {
+                if (processor.isProcessing) return;
+                if (previewImage.src.includes('data:image/svg+xml')) {
+                    processor.showStatus('请先上传图片！', 'warning');
+                    return;
+                }
+
+                processor.isProcessing = true;
+                processor.showProcessing(true, '正在采集颜色...');
+                processor.showStatus('正在采集圆形区域内的颜色...', 'loading');
+
+                try {
+                    const previewCtx = document.createElement('canvas').getContext('2d');
+                    const previewCanvas = previewCtx.canvas;
+                    previewCanvas.width = previewImage.naturalWidth;
+                    previewCanvas.height = previewImage.naturalHeight;
+                    previewCtx.drawImage(previewImage, 0, 0);
+
+                    const scaleX = previewImage.naturalWidth / previewImage.offsetWidth;
+                    const scaleY = previewImage.naturalHeight / previewImage.offsetHeight;
+                    const clickX = Math.floor(event.offsetX * scaleX);
+                    const clickY = Math.floor(event.offsetY * scaleY);
+
+                    if (clickX < 0 || clickX >= previewCanvas.width || clickY < 0 || clickY >= previewCanvas.height) {
+                        processor.showStatus('点击位置超出画布范围', 'warning');
+                        return;
+                    }
+
+                    const clickPixelData = previewCtx.getImageData(clickX, clickY, 1, 1).data;
+                    if (clickPixelData[3] === 0) {
+                        processor.showStatus('请点击有颜色的区域，透明区域将被忽略', 'warning');
+                        return;
+                    }
+
+                    processor.showProcessing(true, '计算平均颜色...');
+                    const crossPixels = processor.collectCrossPixels(clickX, clickY, previewCtx, previewCanvas.width, previewCanvas.height);
+                    
+                    if (crossPixels.length === 0) {
+                        processor.showStatus('所选区域内没有可处理的颜色像素', 'warning');
+                        return;
+                    }
+                    
+                    const selectedColor = processor.calculateAverageColor(crossPixels);
+                    const similarity = parseInt(similarityRange.value);
+
+                    processor.showProcessing(true, '检测连续颜色区域...');
+                    
+                    // 使用Web Workers处理大图片（可选优化）
+                    const canvasImageData = processor.ctx.getImageData(0, 0, processor.canvas.width, processor.canvas.height);
+                    const processedPixels = processor.floodFillTransparent(
+                        canvasImageData.data, 
+                        processor.canvas.width, 
+                        processor.canvas.height, 
+                        clickX, clickY, 
+                        selectedColor, 
+                        similarity
+                    );
+
+                    processor.ctx.putImageData(canvasImageData, 0, 0);
+                    previewImage.src = processor.canvas.toDataURL('image/png');
+                    
+                    const hexColor = processor.rgbToHex(selectedColor[0], selectedColor[1], selectedColor[2]);
+                    processor.showStatus(`已处理：采集颜色 [${hexColor}]，替换了 ${processedPixels.toLocaleString()} 个连续像素`, 'success');
+                    updateStepStatus(1);
+                    
+                } catch (error) {
+                    processor.showStatus('颜色处理失败：' + error.message, 'error');
+                    console.error('处理错误:', error);
+                } finally {
+                    setTimeout(() => {
+                        processor.showProcessing(false);
+                        processor.isProcessing = false;
+                    }, 300);
+                }
+            }
+
+            // 拖拽和文件上传处理函数
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            function highlight() {
+                previewContainer.classList.add('drag-over');
+            }
+
+            function unhighlight() {
+                previewContainer.classList.remove('drag-over');
+            }
+
+            async function handleDrop(e) {
+                preventDefaults(e);
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                    await handleImageUpload(file);
+                }
+            }
+
+            // 统一的图片上传处理
+            async function handleImageUpload(file) {
+                try {
+                    await processor.processImage(file);
+                    previewImage.src = processor.canvas.toDataURL('image/png');
+                    processor.showStatus(`图片尺寸: ${processor.canvas.width} × ${processor.canvas.height}`, 'success');
+                    downloadButton.disabled = false;
+                    updateStepStatus(0);
+                } catch (error) {
+                    console.error('图片处理失败:', error);
+                }
+            }
+
+            // 绑定所有事件监听器
+            function bindEvents() {
+                // 文件选择上传
+                imageFileInput.addEventListener('change', async (event) => {
+                    const file = event.target.files[0];
+                    if (file) await handleImageUpload(file);
+                });
+
+                // 按钮点击触发文件选择
+                const fileUploadButton = document.querySelector('.custom-file-upload button');
+                if (fileUploadButton) {
+                    fileUploadButton.addEventListener('click', () => imageFileInput.click());
+                }
+
+                // 拖拽上传
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    previewContainer.addEventListener(eventName, preventDefaults, false);
+                    document.body.addEventListener(eventName, preventDefaults, false);
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    previewContainer.addEventListener(eventName, highlight, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    previewContainer.addEventListener(eventName, unhighlight, false);
+                });
+
+                previewContainer.addEventListener('drop', handleDrop, false);
+
+                // 相似度滑块
+                if (similarityRange && similarityValue) {
+                    similarityValue.textContent = similarityRange.value;
+                    similarityRange.addEventListener('input', () => {
+                        similarityValue.textContent = similarityRange.value;
+                    });
+                }
+
+                // 鼠标移动 - 优化版本
+                previewContainer.addEventListener('mousemove', optimizedMouseMove);
+                previewContainer.addEventListener('mouseleave', () => {
+                    colorPickerCircle.classList.remove('visible');
+                });
+
+                // 颜色拾取
+                previewImage.addEventListener('click', handleColorPick);
+
+                // 下载
+                downloadButton.addEventListener('click', handleDownload);
+
+                // 页面卸载时清理资源
+                window.addEventListener('beforeunload', cleanup);
+            }
+
+            // 下载处理
+            function handleDownload() {
+                if (previewImage.src.includes('data:image/svg+xml')) {
+                    processor.showStatus('请先上传并处理图片！', 'warning');
+                    return;
+                }
+
+                try {
+                    const link = document.createElement('a');
+                    link.href = processor.canvas.toDataURL('image/png');
+                    link.download = `透明化处理图片_${new Date().getTime()}.png`;
+                    link.click();
+                    
+                    updateStepStatus(2);
+                    processor.showStatus('图片已下载', 'success');
+                } catch (error) {
+                    processor.showStatus('下载失败：' + error.message, 'error');
+                }
+            }
+
+            // 清理资源
+            function cleanup() {
+                if (mouseMoveThrottle) {
+                    cancelAnimationFrame(mouseMoveThrottle);
+                }
+            }
+
+            // 初始化应用
+            function init() {
+                bindEvents();
+                processor.showStatus('未上传图片', 'info');
+            }
+
+            // 启动应用
+            init();
+        });
+    </script>
+</body>
+</html>
