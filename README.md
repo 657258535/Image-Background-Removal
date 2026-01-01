@@ -20,7 +20,7 @@
 ### 本地部署
 ```bash
 # 克隆项目
-git clone [your-repo-url]
+git clone https://github.com/657258535/Image-Background-Removal
 cd remove-background
 
 # 启动本地服务器（可选）
